@@ -13,7 +13,7 @@ The method draws on four traditions:
 
 ## What the store enforces
 
-`qtree.py` is a single Python 3 file using the standard library only.
+`scripts/qtree.py` is a single Python 3 file using the standard library only.
 
 - A material answer of law needs an authority with a pinpoint, and an answer of fact needs its evidence. `[VERIFY]` in any slot counts as unsourced.
 - A critical answer must itself be interrogated by at least one sourced follow-up.
@@ -29,19 +29,19 @@ The method draws on four traditions:
 Copy the folder into your skills directory, e.g. `~/.claude/skills/question-tree/`. There is nothing to install beyond Python 3 (standard library only; tested on 3.11 and 3.14).
 
 ```bash
-python3 qtree.py -h
-bash examples/demo.sh      # proposition → questions → answers → closure → approval → ready
+python3 scripts/qtree.py -h
+bash scripts/demo.sh       # proposition → questions → answers → closure → approval → ready
 ```
 
 ## Tests
 
 ```bash
-bash tests/test_qtree.sh          # regression suite
-python3 tests/fuzz_qtree.py       # fuzzer against an independent oracle
-python3 tests/mutate.py           # planted bugs the suites must catch (slow)
+bash scripts/tests/test_qtree.sh        # regression suite
+python3 scripts/tests/fuzz_qtree.py      # fuzzer against an independent oracle
+python3 scripts/tests/mutate.py         # planted bugs the suites must catch (slow)
 ```
 
-See `TESTING.md` for the results.
+See `references/TESTING.md` for the results.
 
 ## Platform
 

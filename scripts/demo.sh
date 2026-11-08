@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Worked example: a small limitation point taken from proposition to `ready`.
-# Illustrates the mechanics only; it is not legal advice. Run: bash examples/demo.sh
+# Illustrates the mechanics only; it is not legal advice. Run: bash scripts/demo.sh
 set -u
-Q="$(cd "$(dirname "$0")/.." && pwd)/qtree.py"; q(){ python3 "$Q" "$@"; }
+Q="$(cd "$(dirname "$0")" && pwd)/qtree.py"; q(){ python3 "$Q" "$@"; }
 W=$(mktemp -d)
 q init "$W" --root "The contract claim is time-barred." --doc demo >/dev/null
 F=$(ls "$W"/*.json)

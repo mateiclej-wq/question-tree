@@ -493,7 +493,8 @@ def cmd_answer(a):
             die(f"{a.id} is pruned (an ancestor is closed): reopen the ancestor first")
         before = substance(n)
         had_decision = n["decision"] != "OPEN"
-        proposed = ("ANSWERED",) + tuple((getattr(a, k) or "").strip() for k in SLOTS) + (
+        given = {"a": a.a, "grounds": a.grounds, "warrant": a.warrant, "qualifier": a.qualifier, "rebuttal": a.rebuttal}
+        proposed = ("ANSWERED",) + tuple((given[k] or "").strip() for k in SLOTS) + (
             a.type if a.id != "Q0" else "", a.effect, "", "", "")
         if not n["stale"] and before == proposed:
             print(a.id, "ANSWERED (unchanged)")
@@ -501,11 +502,11 @@ def cmd_answer(a):
         if n["a"] or n["decision"] != "OPEN":
             n["history"].append({k: n[k] for k in SLOTS + ("type", "effect", "decision", "concession", "reason")} | {"at": now()})
         for k in SLOTS:
-            n[k] = (getattr(a, k) or "").strip()
+            n[k] = (given[k] or "").strip()
         if a.id == "Q0":
             if a.effect != "supports":
                 die("the root is the proposition itself: --effect must be supports")
-            if any(VERIFY.search(getattr(a, k) or "") for k in SLOTS):
+            if any(VERIFY.search(given[k] or "") for k in SLOTS):
                 die("the root cannot carry [VERIFY]")
         n.update(decision="ANSWERED", stale=False, type=a.type if a.id != "Q0" else "",
                  effect=a.effect, reason="", concession="", dup_of="")

@@ -1,11 +1,11 @@
 ---
 name: question-tree
 description: "Question-driven drafting for lawyers. Before a pleading, skeleton argument, advice or substantial letter is written, build a question tree: state the proposition as an answer, generate every material follow-up question (Paul's six Socratic categories, Walton-style critical questions, and the opponent's, the court's and the client's questions), answer each in Toulmin slots (answer, evidence, authority, qualifier, rebuttal), and treat each answer as a new proposition to interrogate until a structural closure test passes. The reviewer approves the rendered tree before any prose is written; the tree is then linearised into the document in answer-first order, with peripheral answers kept as a reserve for oral argument. Stdlib-only Python store with integrity seal, staleness tracking and byte-exact approval. Modes: draft (the AI answers, the lawyer reviews) and tutor (the AI asks, the lawyer answers). Triggers: 'question tree', 'Socratic draft', 'answer every question first'."
-argument-hint: "[proposition] [--doc slug] [--mode draft|tutor]"
+license: MIT
+compatibility: "Python 3 (standard library only); macOS or Linux (POSIX file locking)."
 metadata:
   author: "Matei Clej"
-  license: "mit"
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Question tree: question-driven drafting
@@ -14,30 +14,30 @@ A legal document is a chain of answers to questions the reader will ask. Most dr
 
 It runs in a loop: state a proposition, extract the questions it raises, answer each one, and repeat until no material question is left. Four traditions fix the gaps in the raw loop:
 
-- **Question generator.** Paul's six Socratic categories, plus Walton-style critical questions per argument type. See `questions.md`.
+- **Question generator.** Paul's six Socratic categories, plus Walton-style critical questions per argument type. See `references/questions.md`.
 - **Answer shape.** Toulmin: claim, grounds, warrant, qualifier, rebuttal.
 - **Structure and stopping.** Issue tree, MECE (mutually exclusive, collectively exhaustive), pyramid (answer-first) order.
 - **Discipline.** Every answer rests on a primary source opened in the task: the evidence read in full, the authority read at the pinpoint, never a summary or recollection.
 
 ## The store
 
-`qtree.py` (Python 3, standard library only) keeps the tree as JSON plus a rendered `.md`. Run `python3 qtree.py -h` for every command.
+`scripts/qtree.py` (Python 3, standard library only) keeps the tree as JSON plus a rendered `.md`. Run `python3 scripts/qtree.py -h` for every command.
 
 ```bash
-python3 qtree.py init  <work_dir> --root "<proposition>" --doc <slug> [--mode draft]
-python3 qtree.py add-many <file> Q0 --json '[{"q":"…","gen":"paul:assumptions","mat":3}]'
-python3 qtree.py open  <file>                       # what is left, most material first
-python3 qtree.py answer <file> Q1 --type law --a "…" --warrant "<authority + pinpoint>" --effect supports
-python3 qtree.py check <file>                       # 0 closed · 2 closed within budget · 1 not closed
-python3 qtree.py place <file> Q1 --section "Ground 1" --order 1
-python3 qtree.py render <file> && python3 qtree.py approve <file>
-python3 qtree.py ready <file>                       # 0 = draft from the Document plan
+python3 scripts/qtree.py init  <work_dir> --root "<proposition>" --doc <slug> [--mode draft]
+python3 scripts/qtree.py add-many <file> Q0 --json '[{"q":"…","gen":"paul:assumptions","mat":3}]'
+python3 scripts/qtree.py open  <file>                       # what is left, most material first
+python3 scripts/qtree.py answer <file> Q1 --type law --a "…" --warrant "<authority + pinpoint>" --effect supports
+python3 scripts/qtree.py check <file>                       # 0 closed · 2 closed within budget · 1 not closed
+python3 scripts/qtree.py place <file> Q1 --section "Ground 1" --order 1
+python3 scripts/qtree.py render <file> && python3 scripts/qtree.py approve <file>
+python3 scripts/qtree.py ready <file>                       # 0 = draft from the Document plan
 ```
 
-Follow-up questions take hierarchical ids (`Q1.1`, `Q1.2`, `Q1.1.1`). `examples/demo.sh` takes a small limitation point from proposition to `ready`. Keep the tree in a working directory outside anything that will be served or filed.
+Follow-up questions take hierarchical ids (`Q1.1`, `Q1.2`, `Q1.1.1`). `scripts/demo.sh` takes a small limitation point from proposition to `ready`. Keep the tree in a working directory outside anything that will be served or filed.
 
 - **Integrity seal.** Every tree file carries a SHA-256 seal of its content. A file changed outside qtree is refused on load, so **change a tree only through qtree commands**. Behind the seal, full schema and semantic validation (reachability, field types, decision requirements) means a forged file is refused with a message rather than crashing the tool. Every save is validated first, so no command can write an invalid tree.
-- **Literal rendering.** User text is rendered with HTML and Markdown syntax shown literally, so a citation such as `[6](b)` reads exactly as typed and cannot forge a heading.
+- **Literal rendering.** User text is rendered with HTML and Markdown syntax shown literally, so a citation such as para 6(b) in square-bracket form reads exactly as typed and cannot forge a heading.
 - **State model.** Each question stores its own *decision* (OPEN, ANSWERED, CONCEDED, OUT_OF_SCOPE, IMMATERIAL, DUPLICATE, BLOCKED, DEFERRED) and a *stale* flag. PRUNED is derived, never stored: a question is pruned while any question above it is closed as CONCEDED, OUT_OF_SCOPE, IMMATERIAL or DUPLICATE. `status <id>` shows the derived state.
 
 ## Precedence (which rule wins)
@@ -62,9 +62,9 @@ Follow-up questions take hierarchical ids (`Q1.1`, `Q1.2`, `Q1.1.1`). `examples/
 - the Walton families that fit the arguments in play;
 - at least one `opp` and one `court` question.
 
-Merge overlaps (MECE) and assign materiality (`questions.md` §4). Use `add-many` with one JSON list. It is atomic and idempotent: an identical retry changes nothing and keeps approval. A re-add with a *different* generator or materiality is refused; `reclass <id> --mat N --gen …` changes them deliberately.
+Merge overlaps (MECE) and assign materiality (`references/questions.md` §4). Use `add-many` with one JSON list. It is atomic and idempotent: an identical retry changes nothing and keeps approval. A re-add with a *different* generator or materiality is refused; `reclass <id> --mat N --gen …` changes them deliberately.
 
-**3. Answer.** Work from `qtree.py open`, which is breadth-first with critical questions first. Each answer declares:
+**3. Answer.** Work from `scripts/qtree.py open`, which is breadth-first with critical questions first. Each answer declares:
 - `--type fact` needs `--grounds` (the fact plus where it is in the evidence);
 - `--type law` needs `--warrant` (authority plus pinpoint, **opened in this task**);
 - `--type mixed` needs both.
@@ -80,7 +80,7 @@ Close a question without answering it only with a stated basis:
 
 **4. Recurse.** Each answer is a new proposition. Ask of it the questions it raises, especially `assumptions`, `evidence` and the matching Walton family.
 
-**5. Closure.** `qtree.py check` exits 1 (not closed) while any of the following is true:
+**5. Closure.** `scripts/qtree.py check` exits 1 (not closed) while any of the following is true:
 - a material question within the depth cap is OPEN or STALE;
 - a material answer lacks the support its type requires;
 - a material question is BLOCKED;
@@ -94,7 +94,7 @@ It exits 2 when closed within budget, listing the residue for the draft's cover 
 
 **7. Review gate.** Run `render`; the lawyer reviews the tree and the document plan; then `approve`. The render is **deterministic** (no timestamps or approval state), and `ready` requires the file on disk to equal a fresh render byte for byte, so any hand edit is detected. Approval binds to the render on disk, and any later substantive edit clears it. **Never approve on the lawyer's behalf without their review.**
 
-**8. Ready.** `qtree.py ready` exits 0 only when `check` exits 0 or 2, the approved render is current and unaltered, and every material answer is placed. Only then draft, **from the Document plan section**:
+**8. Ready.** `scripts/qtree.py ready` exits 0 only when `check` exits 0 or 2, the approved render is current and unaltered, and every material answer is placed. Only then draft, **from the Document plan section**:
 - the conclusion first;
 - each section in plan order;
 - each paragraph answers the question the reader would ask next;
@@ -114,7 +114,9 @@ Questions never appear in the served document. Before handover, scan the draft f
 
 ## Files
 
-- `qtree.py` — the store (stdlib only; POSIX file locking).
-- `questions.md` — the generator bank.
-- `examples/demo.sh` — worked example.
-- `tests/` — regression suite, fuzzer with an independent oracle, mutation tests. See `TESTING.md`.
+- `scripts/qtree.py` — the store (stdlib only; POSIX file locking).
+- `scripts/demo.sh` — worked example.
+- `scripts/tests/` — regression suite, fuzzer with an independent oracle, mutation tests.
+- `references/questions.md` — the generator bank.
+- `references/TESTING.md` — test results.
+- `evals/evals.json` — evaluation prompts.

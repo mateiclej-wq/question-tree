@@ -1,6 +1,6 @@
 #!/bin/bash
 # Regression tests for qtree v2 — each block reproduces a finding from an independent QA pass.
-Q=${QT_PATH:-$(cd "$(dirname "$0")/.." && pwd)/qtree.py}; D=$(mktemp -d); pass=0; fail=0
+Q=${QT_PATH:-$(cd "$(dirname "$0")/.." && pwd)/qtree.py}; TH="$(cd "$(dirname "$0")" && pwd)/th.py"; D=$(mktemp -d); pass=0; fail=0
 must(){ if ! python3 $Q "$@" >/dev/null 2>&1; then fail=$((fail+1)); echo "SETUP FAILED: $*"; fi; }
 reseal(){ python3 - "$Q" "$1" <<'PY'
 import sys, json, importlib.util
@@ -51,10 +51,10 @@ must answer "$F" Q1 --type fact --a "attended" --effect supports --grounds "atte
 must add "$F" Q1 --q "proof?" --gen paul:evidence --mat 2
 must answer "$F" Q1.1 --type fact --a "record" --effect supports --grounds "B/9"
 must render "$F"; must approve "$F"
-ok "$(python3 -c "import json;t=json.load(open('$F'));print(t['approved_rev']==t['rev'])")" True "F3 approval actually recorded"
+ok "$(python3 "$TH" approved "$F")" True "F3 approval actually recorded"
 ok $(run ready "$F") 1 "not ready: unplaced"
 must answer "$F" Q1 --type fact --a "did not attend" --effect supports
-ok "$(python3 -c "import json;t=json.load(open('$F'));print(t['nodes']['Q1']['grounds']=='' and t['approved_rev'] is None)") $(python3 $Q status "$F" Q1.1)" "True STALE" "re-answer clears/stales/unapproves"
+ok "$(python3 "$TH" cleared "$F") $(python3 $Q status "$F" Q1.1)" "True STALE" "re-answer clears/stales/unapproves"
 ok $(run check "$F") 1 "stale descendants block closure"
 
 # F7 cascades + duplicates
@@ -116,7 +116,7 @@ ok $(run close "$F" Q1.1 DEFERRED --reason "not now") 1 "material deferral needs
 # F8 concurrency: 20 parallel adds, no lost writes, unique ids
 F=$(new 8)
 for i in $(seq 1 20); do python3 $Q add "$F" Q0 --q "p$i" --gen self >/dev/null & done; wait
-ok "$(python3 -c "import json;t=json.load(open('$F'));c=t['nodes']['Q0']['children'];print(len(c),len(set(c)))")" "20 20" "parallel adds"
+ok "$(python3 "$TH" children "$F")" "20 20" "parallel adds"
 
 # node budget
 F=$(python3 $Q init "$D" --root R --doc t9 --max-nodes 2)
@@ -200,7 +200,7 @@ F=$(new b10)
 for j in '[null]' '[{"q":1,"gen":"self"}]' '[{"q":"x","gen":null}]' '[{"q":"x","gen":"self","mat":"abc"}]' '[{"q":"x","gen":"self","mat":2.9}]' '[{"q":"x","gen":"self","mat":true}]' '{"q":"x"}' 'nope' '[{"q":"ok","gen":"self"},{"q":"bad","gen":"self","mat":9}]'; do
   out=$(python3 $Q add-many "$F" Q0 --json "$j" 2>&1); c=$?
   ok "$c$(echo "$out" | grep -c Traceback)" "10" "B10 rejects $j"; done
-ok "$(python3 -c "import json;print(len(json.load(open('$F'))['nodes']))")" 1 "B10 nothing committed"
+ok "$(python3 "$TH" count "$F")" 1 "B10 nothing committed"
 # B11 unplace
 F=$(new b11); sup "$F"; must place "$F" Q1 --section G1
 must add "$F" Q0 --q "Peripheral?" --gen court --mat 1
@@ -285,10 +285,10 @@ ok "$(python3 $Q check "$F" 2>/dev/null | grep -c 'Q1: critical answer not inter
 # not raised in QA: symlink path shares the lock; failed write leaves no temp file and an intact tree
 F=$(new sym); ln -s "$F" "$D/link.json"
 for i in $(seq 1 10); do python3 $Q add "$F" Q0 --q "a$i" --gen self >/dev/null & python3 $Q add "$D/link.json" Q0 --q "b$i" --gen self >/dev/null & done; wait
-ok "$(python3 -c "import json;c=json.load(open('$F'))['nodes']['Q0']['children'];print(len(c),len(set(c)))")" "20 20" "symlink + real path share one lock"
+ok "$(python3 "$TH" children "$F")" "20 20" "symlink + real path share one lock"
 F=$(new ro); chmod 555 "$D"; out=$(python3 $Q add "$F" Q0 --q x --gen self 2>&1); c=$?; chmod 755 "$D"
 ok "$c$(ls -a "$D" | grep -c '\.qtree-')" "10" "failed write: nonzero exit, no temp left"
-ok "$(python3 -c "import json;print(len(json.load(open('$F'))['nodes']))")" 1 "failed write: tree intact"
+ok "$(python3 "$TH" count "$F")" 1 "failed write: tree intact"
 
 # ===== QA round 4 =====
 bs(){ must add "$1" Q0 --q Main --gen self --mat ${2:-2}; must answer "$1" Q1 --type fact --a Support --effect supports --grounds B/1; must place "$1" Q1 --section Main; }
@@ -334,7 +334,7 @@ must answer "$F" Q1 --type fact --a Support --effect supports --grounds B/1; mus
 M=$(python3 $Q render "$F"); ok "$(grep -c '<h2>' "$M")" 0 "4.5 HTML escaped"
 # 4.6 render via symlink prints and checks the real file
 F=$(new s6); bs "$F"; ln -s "$F" "$D/s6link.json"; printf '# Old review\n## Document plan\nOLD PLAN\n' > "$D/s6link.md"
-ok "$(python3 $Q render "$D/s6link.json")" "$(python3 -c "import os,sys;print(os.path.realpath(sys.argv[1]))" "${F%.json}.md")" "4.6 render prints the file written"
+ok "$(python3 $Q render "$D/s6link.json")" "$(python3 "$TH" realpath "${F%.json}.md")" "4.6 render prints the file written"
 # 4.7 root answer: effect must be supports, no false diagnostics
 F=$(new s7); bs "$F"
 ok $(run answer "$F" Q0 --type mixed --a "Replacement root" --effect undermines) 1 "4.7 root cannot undermine itself"
@@ -343,7 +343,7 @@ ok "$(python3 $Q answer "$F" Q0 --type mixed --a "Replacement root" --effect sup
 F=$(new s8); must add "$F" Q0 --q Main --gen self --mat 1
 ok $(run add-many "$F" Q0 --json '[{"q":"Main","gen":"opp","mat":3}]') 1 "4.8 conflicting metadata refused"
 must reclass "$F" Q1 --mat 3 --gen opp
-ok "$(python3 $Q show "$F" Q1 | python3 -c 'import sys,json;t=sys.stdin.read();j=json.loads(t[t.index("{"):]);print(j["mat"],j["gen"])')" "3 opp" "4.8 reclass"
+ok "$(python3 $Q show "$F" Q1 | python3 "$TH" matgen)" "3 opp" "4.8 reclass"
 # 4.10 reopen restores an answer archived by concession, as STALE
 F=$(new s10); bs "$F"; must close "$F" Q1 CONCEDED --concession "Conceded C"
 must reopen "$F" Q1; ok "$(python3 $Q status "$F" Q1)" STALE "4.10 archived answer restored for review"
@@ -433,7 +433,7 @@ M=$(python3 $Q render "$F"); RS=$(sed -n '/^## Reserve (/,/^## Closure/p' "$M")
 ok "$(echo "$RS" | grep -c 'Authority paragraph 10\|Distinguished on fact X')" 2 "6.4 reserve keeps authority + rebuttal"
 # 6.8 CRLF-altered render rejected (byte equality)
 b6 t68; must render "$F"; must approve "$F"; ok $(run ready "$F") 0 "6.8 ready"
-python3 -c "import sys;p=sys.argv[1];b=open(p,'rb').read();open(p,'wb').write(b.replace(b'\n',b'\r\n'))" "${F%.json}.md"
+python3 "$TH" crlf "${F%.json}.md"
 ok $(run ready "$F") 1 "6.8 CRLF edit detected"
 
 # ===== QA round 7 =====
@@ -538,7 +538,7 @@ ok $(run status "$F" Q1) 0 "11.5 tree intact"
 # ===== QA round 12 + every-command happy path =====
 b6 r12a; must add "$F" Q1 --q Probe --gen opp --mat 1
 ok "$(python3 $Q open "$F" --json >/dev/null 2>&1; echo $?)" 0 "12.1 open --json works"
-ok "$(python3 $Q open "$F" --json | python3 -c 'import sys,json;print(type(json.load(sys.stdin)).__name__)')" list "12.1 open --json returns JSON"
+ok "$(python3 $Q open "$F" --json | python3 "$TH" jsontype)" list "12.1 open --json returns JSON"
 hp(){ local want=$1; shift; out=$(python3 $Q "$1" "$F" "${@:2}" 2>&1); c=$?; ok "$c$(echo "$out" | grep -c Traceback)" "${want}0" "happy path: $*"; }
 hp 0 status Q1; hp 0 show Q1; hp 0 open; hp 0 open --json; hp 2 check
 hp 0 answer Q1.1 --type fact --a "Probe answer" --effect neutral --grounds B/2

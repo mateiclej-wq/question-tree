@@ -1,0 +1,40 @@
+{
+  "skill_name": "question-tree",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Question tree this before I draft: the respondent's application to strike out the claim as time-barred should be refused because the claim was issued within six years of the breach. The breach letter is dated 1 March 2019 and the claim was issued on 20 February 2025.",
+      "expected_output": "A question tree is initialised with the proposition stated as an answer. The first ring covers the Paul categories plus at least one opponent and one court question. Answers are recorded with evidence or an authority and pinpoint, the tree is rendered for the lawyer's review, and no prose is drafted before approval.",
+      "files": [],
+      "expectations": [
+        "The skill ran scripts/qtree.py init with the proposition as the root",
+        "At least one question uses the opp generator and at least one uses the court generator",
+        "Every answer of type law carries a --warrant with a pinpoint, or the question is closed BLOCKED with [VERIFY]",
+        "The agent rendered the tree and asked for review before approving or drafting"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Tutor mode, please. Use a question tree on whether my client's confession should be excluded as unreliable. Ask me the questions and I'll answer them.",
+      "expected_output": "The agent selects tutor mode, asks no more than five questions per batch and starts with the critical branches. It records the lawyer's answers in the tree, and gives hints only as where to look, never as what the source says.",
+      "files": [],
+      "expectations": [
+        "The tree is initialised with --mode tutor",
+        "The first batch has five questions or fewer",
+        "The agent does not answer its own questions with legal propositions in tutor mode",
+        "Answers given by the user are recorded with qtree.py answer"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Here is my question tree. Q2 now undermines our case: the other side's expert evidence contradicts us. Can we go straight to drafting?",
+      "expected_output": "The agent runs check, which fails because an undermining material answer has no rebuttal. It explains that the answer must be rebutted with a sourced rebuttal, conceded in drafted wording, or taken back to the strategy before drafting, and it does not approve or draft around the point.",
+      "files": [],
+      "expectations": [
+        "The agent ran scripts/qtree.py check and reported exit 1",
+        "The agent named the three routes: rebut, concede, or revisit the strategy",
+        "The agent did not run approve or produce draft prose"
+      ]
+    }
+  ]
+}
